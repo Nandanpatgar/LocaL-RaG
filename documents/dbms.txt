@@ -1,0 +1,4 @@
+A Database Management System (DBMS) is software used to create, manage, store, and retrieve data.
+Database normalization organizes tables to reduce redundancy and prevent insertion, update, and deletion anomalies.
+The ACID properties of database transactions are Atomicity, Consistency, Isolation, and Durability.
+A primary key uniquely identifies each record in a table. A foreign key establishes a relationship between tables.

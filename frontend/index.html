@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0d12">
+  <title>LocalRAG — AI Document Assistant</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><i class="fa-solid fa-layer-group"></i></div>
+        <div><div class="brand-name">Local<span>RAG</span></div><div class="brand-subtitle">AI DOCUMENT ASSISTANT</div></div>
+      </div>
+
+      <button class="new-chat-button" id="newChatButton"><i class="fa-solid fa-plus"></i> New conversation</button>
+
+      <section class="sidebar-section">
+        <div class="section-label"><i class="fa-solid fa-sliders"></i> CHAT MODE</div>
+        <div class="mode-list">
+          <button class="mode-option active" data-mode="llm" id="llmModeButton">
+            <span class="mode-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <span class="mode-copy"><strong>LLM Only</strong><small>General AI conversation</small></span>
+            <i class="fa-solid fa-check mode-check"></i>
+          </button>
+          <button class="mode-option" data-mode="rag" id="ragModeButton">
+            <span class="mode-icon"><i class="fa-solid fa-file-circle-check"></i></span>
+            <span class="mode-copy"><strong>LLM + PDF</strong><small>Answers grounded in your PDF</small></span>
+            <i class="fa-solid fa-check mode-check"></i>
+          </button>
+        </div>
+      </section>
+
+      <section class="sidebar-section document-section">
+        <div class="section-label"><i class="fa-regular fa-folder-open"></i> YOUR DOCUMENT</div>
+        <label class="upload-zone" for="pdfInput" id="uploadArea">
+          <span class="upload-symbol"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+          <strong>Upload a PDF</strong>
+          <span>Click to browse your files</span>
+          <small>PDF only · Maximum 20 MB</small>
+          <input type="file" id="pdfInput" accept=".pdf,application/pdf" hidden>
+        </label>
+        <div class="document-card" id="documentCard" hidden>
+          <div class="pdf-symbol"><i class="fa-solid fa-file-pdf"></i></div>
+          <div class="document-copy">
+            <strong id="documentName">document.pdf</strong>
+            <span id="documentSize">0 KB</span>
+            <span class="document-status" id="documentStatus">Selected</span>
+          </div>
+          <button class="remove-button" id="removeDocumentButton" aria-label="Remove PDF" title="Remove PDF"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="upload-note" id="uploadNote">Upload a document to ask questions about its contents.</p>
+        <div class="upload-progress" id="uploadProgress" hidden>
+          <div class="progress-track"><span id="progressBar"></span></div>
+          <span id="progressText">Processing PDF…</span>
+        </div>
+      </section>
+
+      <div class="sidebar-bottom">
+        <div class="connection-card">
+          <span class="status-light" id="connectionDot"></span>
+          <div><strong id="connectionTitle">Checking local AI…</strong><small id="connectionSubtitle">Ollama · Llama 3.2</small></div>
+          <button class="refresh-status" id="refreshStatusButton" title="Check connection" aria-label="Check connection"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+        <div class="privacy-note"><i class="fa-solid fa-shield-halved"></i><span>Runs locally on your computer. Your prompts are sent to your local Ollama service.</span></div>
+      </div>
+    </aside>
+
+    <main class="main-panel">
+      <header class="topbar">
+        <div class="mobile-brand"><i class="fa-solid fa-layer-group"></i> Local<span>RAG</span></div>
+        <div class="breadcrumb"><span>Workspace</span><i class="fa-solid fa-chevron-right"></i><strong id="currentModeLabel">LLM Only</strong></div>
+        <div class="topbar-right"><span class="status-light" id="topStatusDot"></span><span id="topStatusText">Checking backend</span></div>
+      </header>
+
+      <section class="chat-scroll" id="chatWrapper">
+        <div class="welcome-screen" id="welcomeScreen">
+          <div class="hero-icon"><i class="fa-solid fa-brain"></i></div>
+          <div class="eyebrow"><span class="status-light"></span> YOUR PERSONAL AI WORKSPACE</div>
+          <h1 id="welcomeTitle">Intelligence, <span>without limits.</span></h1>
+          <p class="welcome-description" id="welcomeDescription">Ask questions, explore ideas, and learn something new with your local AI assistant.</p>
+          <div class="suggestion-grid" id="suggestionGrid">
+            <button class="suggestion-card" data-prompt="Explain a difficult concept in simple terms."><span class="suggestion-icon purple"><i class="fa-regular fa-lightbulb"></i></span><span class="suggestion-copy"><strong>Explain a concept</strong><small>Turn complex ideas into simple explanations.</small></span><i class="fa-solid fa-arrow-up-right-from-square card-arrow"></i></button>
+            <button class="suggestion-card" data-prompt="Help me understand a programming problem step by step."><span class="suggestion-icon blue"><i class="fa-solid fa-code"></i></span><span class="suggestion-copy"><strong>Explore programming</strong><small>Understand coding problems step by step.</small></span><i class="fa-solid fa-arrow-up-right-from-square card-arrow"></i></button>
+            <button class="suggestion-card" data-prompt="Give me a structured plan to learn a new technical topic."><span class="suggestion-icon orange"><i class="fa-solid fa-graduation-cap"></i></span><span class="suggestion-copy"><strong>Build a learning plan</strong><small>Organize your learning into clear steps.</small></span><i class="fa-solid fa-arrow-up-right-from-square card-arrow"></i></button>
+            <button class="suggestion-card" data-prompt="What are some useful ways to use AI for studying?"><span class="suggestion-icon green"><i class="fa-solid fa-robot"></i></span><span class="suggestion-copy"><strong>Discover AI</strong><small>Explore practical applications of AI.</small></span><i class="fa-solid fa-arrow-up-right-from-square card-arrow"></i></button>
+          </div>
+        </div>
+        <div class="messages-container" id="messagesContainer" aria-live="polite"></div>
+      </section>
+
+      <footer class="composer-footer">
+        <div class="composer-wrap">
+          <div class="composer">
+            <textarea id="messageInput" rows="1" placeholder="Ask anything…" aria-label="Message LocalRAG"></textarea>
+            <div class="composer-bottom">
+              <div class="composer-mode"><i class="fa-solid fa-wand-magic-sparkles" id="composerModeIcon"></i><span id="composerModeText">General AI conversation</span></div>
+              <div class="composer-actions"><span class="enter-hint">Enter to send · Shift+Enter for new line</span><button class="send-button" id="sendButton" aria-label="Send message" title="Send message"><i class="fa-solid fa-arrow-up"></i></button></div>
+            </div>
+          </div>
+          <p class="disclaimer">LocalRAG can make mistakes. Verify important information.</p>
+        </div>
+      </footer>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,543 +1,238 @@
-# LocalRAG — Local AI and PDF-Based Question Answering
+# LocalRAG — Local AI Chat + PDF RAG
 
-LocalRAG is a locally running AI-powered document question-answering application that enables users to interact with PDF documents using natural language. It combines Large Language Models (LLMs), semantic search, vector databases, and Retrieval-Augmented Generation (RAG) to generate context-aware answers grounded in document content.
+LocalRAG is a local-first document assistant with two modes:
 
-The application provides two interaction modes: **LLM Only**, for general conversational queries, and **LLM + PDF (RAG)**, for answering questions using an uploaded document as the primary source of evidence.
+- **LLM Only:** chat with Ollama's Llama 3.2 model without retrieving document passages.
+- **LLM + PDF (RAG):** upload a text-based PDF, retrieve relevant page-level chunks with MiniLM and ChromaDB, and generate an answer grounded in those passages.
 
-By running the language model locally through Ollama, LocalRAG offers a practical approach to document intelligence without requiring a cloud-based LLM API.
+The project keeps the original command-line TXT indexing workflow and adds a web UI with Flask.
 
-## Table of Contents
+## Features
 
-* [Overview](#overview)
-* [Problem Statement](#problem-statement)
-* [Objectives](#objectives)
-* [Key Features](#key-features)
-* [System Architecture](#system-architecture)
-* [Technology Stack](#technology-stack)
-* [How It Works](#how-it-works)
-* [Project Structure](#project-structure)
-* [Prerequisites](#prerequisites)
-* [Installation and Setup](#installation-and-setup)
-* [Running the Application](#running-the-application)
-* [Application Modes](#application-modes)
-* [API Endpoints](#api-endpoints)
-* [Privacy and Limitations](#privacy-and-limitations)
-* [Future Enhancements](#future-enhancements)
-* [Author](#author)
+- Modern dark responsive web interface.
+- Switch between LLM Only and LLM + PDF (RAG).
+- Select or drag-and-drop a PDF (up to 20 MB).
+- Extract text page-by-page and retain page metadata.
+- Sentence-aware chunking using the existing `chunker.py`.
+- `sentence-transformers/all-MiniLM-L6-v2` embeddings.
+- A dedicated ChromaDB collection for the active PDF, separate from the TXT collection.
+- Source filename and page references in RAG responses.
+- Greetings in RAG mode are answered conversationally without PDF retrieval.
+- RAG requests abstain when no sufficiently relevant passages are retrieved.
+- Local inference through Ollama and `llama3.2`.
 
-## Overview
+## Technology stack
 
-Reading and extracting information from lengthy documents can be time-consuming. Traditional document readers require users to manually search through pages to locate relevant information.
+| Layer | Technology |
+|---|---|
+| Frontend | HTML, CSS, JavaScript |
+| Backend API | Python, Flask, Flask-CORS |
+| Local LLM | Ollama, Llama 3.2 |
+| PDF text extraction | pypdf |
+| Embeddings | Sentence Transformers, all-MiniLM-L6-v2 |
+| Vector database | ChromaDB |
+| Existing TXT workflow | `indexer.py`, `main.py`, `vector_store.py` |
 
-LocalRAG addresses this challenge by allowing users to upload a PDF and ask questions about its contents through a conversational interface.
-
-The system extracts text from the uploaded document, divides it into smaller chunks, generates vector embeddings, and stores them in a vector database. When a question is submitted, relevant document chunks are retrieved and supplied to a locally running language model to generate a context-aware response.
-
-The application also supports general conversations without requiring document context.
-
-## Problem Statement
-
-Users frequently need to retrieve specific information from lengthy documents, academic materials, reports, and reference PDFs. Manual searching is inefficient, while general-purpose language models may generate answers that are not supported by the document being examined.
-
-A document question-answering system is needed that can retrieve relevant information, generate answers using document evidence, and operate locally to reduce dependence on external AI services.
-
-## Objectives
-
-* Develop a conversational interface for interacting with PDF documents.
-* Enable semantic retrieval of relevant document passages.
-* Generate context-aware answers using a locally running LLM.
-* Provide separate modes for general conversations and document-based question answering.
-* Maintain document isolation when switching between uploaded PDFs.
-* Reduce dependence on cloud-based language model APIs.
-* Provide a modular architecture that supports future improvements.
-
-## Key Features
-
-### 1. Dual Chat Modes
-
-**LLM Only Mode**
-
-* Supports general conversational interactions.
-* Uses Llama 3.2 through Ollama.
-* Does not require an uploaded PDF as context.
-
-**LLM + PDF (RAG) Mode**
-
-* Accepts questions about an uploaded PDF.
-* Retrieves relevant passages from the indexed document.
-* Uses retrieved context to generate document-grounded answers.
-* Can indicate when sufficient supporting evidence is unavailable, depending on retrieval and verification behavior.
-
-### 2. PDF Upload and Processing
-
-* Upload PDF documents through the web interface.
-* Extract text from supported, text-based PDFs.
-* Divide extracted content into smaller chunks.
-* Generate embeddings for semantic retrieval.
-* Index document chunks for question answering.
-
-### 3. Semantic Search
-
-The application uses sentence embeddings to represent document passages and queries as numerical vectors. These representations allow the retrieval system to identify semantically relevant content, even when the question does not use exactly the same words as the document.
-
-### 4. Local Language Model
-
-Ollama provides the local inference interface for Llama 3.2. This reduces dependence on external LLM APIs and allows the application to generate responses on the local machine.
-
-### 5. Vector Database
-
-ChromaDB stores and retrieves vector representations of document chunks, supporting semantic search over indexed content.
-
-### 6. Interactive Web Interface
-
-* Dedicated chat interface.
-* Mode selection between general chat and document-based chat.
-* PDF upload controls.
-* Conversational message display.
-* Document status information.
-
-### 7. Document Isolation
-
-The document workflow is designed to keep the active PDF's retrieved context separate from previously uploaded PDFs. This behavior should be maintained and tested when modifying the indexing or retrieval pipeline.
-
-## System Architecture
-
-LocalRAG follows a modular architecture consisting of a frontend, backend, document-processing pipeline, retrieval system, vector database, and local language model.
-
-```text
-                    USER
-                      |
-                      v
-             WEB USER INTERFACE
-              HTML, CSS, JavaScript
-                      |
-                      v
-                FLASK BACKEND
-                      |
-             +--------+--------+
-             |                 |
-             v                 v
-        LLM ONLY MODE      PDF RAG MODE
-             |                 |
-             |                 v
-             |           PDF UPLOAD
-             |                 |
-             |                 v
-             |           TEXT EXTRACTION
-             |                 |
-             |                 v
-             |            TEXT CHUNKING
-             |                 |
-             |                 v
-             |          EMBEDDING GENERATION
-             |                 |
-             |                 v
-             |             CHROMADB
-             |                 |
-             |                 v
-             |          SEMANTIC RETRIEVAL
-             |                 |
-             |                 v
-             +---------> OLLAMA
-                           |
-                           v
-                      LLAMA 3.2
-                           |
-                           v
-                    GENERATED ANSWER
-                           |
-                           v
-                     CHAT INTERFACE
-```
-
-### Architecture Components
-
-| Component       | Responsibility                                                                 |
-| --------------- | ------------------------------------------------------------------------------ |
-| Frontend        | Provides the user interface for chatting, selecting modes, and uploading PDFs. |
-| Flask backend   | Handles HTTP requests and coordinates application operations.                  |
-| PDF processing  | Extracts text and prepares document content for indexing.                      |
-| Text chunking   | Divides extracted text into smaller, manageable passages.                      |
-| Embedding model | Converts text into numerical vector representations.                           |
-| ChromaDB        | Stores and retrieves vector representations of document chunks.                |
-| Ollama          | Provides local access to the language model.                                   |
-| Llama 3.2       | Generates conversational and context-aware responses.                          |
-
-## Technology Stack
-
-| Category               | Technology            | Purpose                                 |
-| ---------------------- | --------------------- | --------------------------------------- |
-| Frontend               | HTML5                 | Web page structure                      |
-| Frontend               | CSS3                  | Layout and styling                      |
-| Frontend               | JavaScript            | User interactions and API communication |
-| Backend                | Python                | Application logic                       |
-| Backend Framework      | Flask                 | HTTP API and backend services           |
-| Cross-Origin Requests  | Flask-CORS            | Cross-origin request handling           |
-| Language Model Runtime | Ollama                | Local LLM execution                     |
-| Language Model         | Llama 3.2             | Natural language response generation    |
-| Embeddings             | Sentence Transformers | Semantic text representation            |
-| Embedding Model        | `all-MiniLM-L6-v2`    | Text embedding generation               |
-| Vector Database        | ChromaDB              | Vector storage and retrieval            |
-| PDF Processing         | pypdf                 | PDF text extraction                     |
-| HTTP Client            | Requests              | HTTP communication                      |
-| Development Tools      | VS Code, Git, GitHub  | Development and version control         |
-
-## How It Works
-
-### Phase 1: Document Ingestion
-
-When a user uploads a PDF, the backend processes the document.
-
-1. The PDF is received by the Flask application.
-2. Text is extracted from the document.
-3. The extracted text is divided into smaller chunks.
-4. Each chunk is converted into an embedding.
-5. The embeddings and associated metadata are indexed in ChromaDB.
-
-### Phase 2: Question Processing
-
-When the user submits a question in RAG mode:
-
-1. The question is received by the backend.
-2. The question is converted into an embedding.
-3. The retrieval system searches for relevant document chunks.
-4. The most relevant passages are selected according to the retrieval configuration.
-5. The retrieved passages are supplied to the language model as context.
-
-### Phase 3: Answer Generation
-
-The language model uses the question and retrieved context to formulate a response.
-
-The objective is to generate an answer supported by the available document evidence rather than relying exclusively on the model's general knowledge.
-
-If the retrieved passages do not contain sufficient evidence, the system should avoid presenting an unsupported answer as a confirmed document fact.
-
-### Phase 4: Response Delivery
-
-The generated response is returned by the Flask backend and displayed in the frontend chat interface.
-
-In LLM Only mode, the application uses the local language model without retrieving PDF context.
-
-## Project Structure
-
-The project is organized into frontend files, Python modules, configuration files, and runtime data directories.
+## Project structure
 
 ```text
 LocalRAG_ReadyToRun/
-|
-|-- app.py
-|-- main.py
-|-- chunker.py
-|-- embedding_model.py
-|-- indexer.py
-|-- retrieval.py
-|-- vector_store.py
-|-- llm.py
-|
-|-- frontend/
-|   |-- index.html
-|   |-- style.css
-|   |-- script.js
-|
-|-- documents/
-|-- chroma_db/
-|
-|-- requirements.txt
-|-- .gitignore
-|-- setup_windows.bat
-|-- start_localrag.bat
-|-- README.md
+├── app.py                    # Flask API for UI, LLM chat and PDF RAG
+├── chunker.py                # Existing text chunker
+├── embedding_model.py        # MiniLM model and embedding helper
+├── indexer.py                # Existing TXT document indexer
+├── llm.py                    # Existing context-grounded LLM helper
+├── main.py                   # Existing CLI RAG application
+├── retriver.py               # Existing in-memory retrieval diagnostic
+├── vector_store.py            # Existing TXT ChromaDB operations
+├── requirements.txt
+├── setup_windows.bat
+├── start_localrag.bat
+├── .gitignore
+├── documents/                # Sample TXT files for the CLI workflow
+└── frontend/
+    ├── index.html
+    ├── style.css
+    └── script.js
 ```
 
-*The structure above describes the intended organization. Runtime directories and additional files may vary depending on the application version.*
+## Requirements
 
-### Important Files
+- Windows 10/11 or another OS that supports Python and Ollama.
+- Python 3.11 or 3.12 is recommended for broad ML-package compatibility. Your installed Python version may work, but the newest Python release can lag behind some ML dependency wheels.
+- Ollama installed.
+- The `llama3.2` model downloaded.
+- Internet access on first setup to install Python packages and download model weights.
+- Approximately several GB of free disk space may be needed for Python/ML dependencies and model files.
 
-| File                  | Responsibility                                  |
-| --------------------- | ----------------------------------------------- |
-| `app.py`              | Flask application and API endpoints             |
-| `main.py`             | Command-line RAG workflow                       |
-| `chunker.py`          | Text chunking                                   |
-| `embedding_model.py`  | Embedding model initialization and generation   |
-| `indexer.py`          | Document indexing workflow                      |
-| `retrieval.py`        | Semantic retrieval operations                   |
-| `vector_store.py`     | ChromaDB operations                             |
-| `llm.py`              | Local language model interaction                |
-| `frontend/index.html` | Web interface structure                         |
-| `frontend/style.css`  | Frontend styling                                |
-| `frontend/script.js`  | Frontend interactions and backend communication |
-| `requirements.txt`    | Python dependencies                             |
-| `setup_windows.bat`   | Windows environment setup                       |
-| `start_localrag.bat`  | Application startup script                      |
+## Windows setup
 
-## Prerequisites
+### 1. Extract the ZIP
 
-Ensure that the following software is installed:
+Extract the complete ZIP to a normal writable folder, for example:
 
-* Python 3.11 or another Python version compatible with the installed dependencies.
-* Ollama.
-* Git, if cloning the repository.
-* A modern web browser.
-* Sufficient RAM and disk space to run the embedding model, vector database, and local LLM.
-
-The first execution may require downloading Python packages, the embedding model, and the Llama model.
-
-## Installation and Setup
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/Nandanpatgar/LocaL-RaG.git
-cd LocaL-RaG
+```text
+C:\Users\YourUser\Documents\LocalRAG_ReadyToRun
 ```
 
-If you are using the supplied project ZIP instead, extract it and open the extracted project directory in VS Code.
+Avoid placing the project inside a read-only or protected system folder.
 
-### 2. Create a Virtual Environment
+### 2. Create the environment and install dependencies
 
-On Windows PowerShell:
+Double-click `setup_windows.bat`, or run these commands in PowerShell from the project root:
 
 ```powershell
 python -m venv .venv
-```
-
-Activate it:
-
-```powershell
 .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-If PowerShell blocks script execution, use a Command Prompt terminal and activate the environment with:
-
-```bat
-.venv\Scripts\activate.bat
-```
-
-### 3. Install Dependencies
-
-With the virtual environment activated, run:
+If PowerShell blocks environment activation, you can avoid activation and use the environment's Python directly:
 
 ```powershell
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-### 4. Install and Start Ollama
+### 3. Install and start Ollama
 
-Install Ollama from its official website:
-
-https://ollama.com/
-
-Check whether Ollama is available:
+Check whether Ollama is installed:
 
 ```powershell
 ollama --version
 ```
 
-Download the required model:
+Download Llama 3.2 if necessary:
 
 ```powershell
 ollama pull llama3.2
 ```
 
-Verify that the model is available:
+Check that the model is available:
 
 ```powershell
 ollama list
 ```
 
-Ensure the Ollama service is running before launching the application.
+Ollama normally runs as a background service on `http://localhost:11434`. If it is not running, open the Ollama application first.
 
-## Running the Application
+### 4. Start LocalRAG
 
-### Option 1: Windows Startup Script
+Double-click `start_localrag.bat`.
 
-If the supplied startup scripts are present, run the setup script first:
+It opens separate terminal windows for the Flask API and static frontend server, then opens the UI in your browser.
 
-```powershell
-.\setup_windows.bat
+The web app address is:
+
+```text
+http://localhost:5500
 ```
 
-Then start the application:
-
-```powershell
-.\start_localrag.bat
-```
-
-The startup script is intended to launch the backend and frontend separately.
-
-Keep the server terminal windows open while using the application.
-
-### Option 2: Run the Backend and Frontend Manually
-
-**Terminal 1: Start Flask**
-
-From the project root:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python app.py
-```
-
-The backend should be available at:
+The Flask API runs at:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-**Terminal 2: Start the Frontend**
+To start manually instead, open two terminals at the project root.
 
-Open another terminal in the project root:
+**Terminal 1 — backend:**
+
+```powershell
+.\.venv\Scripts\python.exe app.py
+```
+
+**Terminal 2 — frontend:**
 
 ```powershell
 cd frontend
 python -m http.server 5500
 ```
 
-Open the application in your browser:
+Then open `http://localhost:5500`.
 
-```text
-http://localhost:5500
-```
+Keep both terminal windows running while using the app. Stop either server with `Ctrl+C` in its terminal.
 
-Both servers must remain running during use.
-
-## Application Modes
+## How to use the web app
 
 ### LLM Only
 
-Use this mode for general questions and conversational interactions.
-
-Example:
-
-```text
-User: Hi! Introduce yourself.
-
-Assistant: Responds conversationally using the local language model.
-```
-
-The answer does not depend on an uploaded PDF.
+1. Select **LLM Only** in the sidebar.
+2. Type a greeting or general question.
+3. Press Enter or click Send.
+4. LocalRAG sends the prompt to the local Ollama model.
 
 ### LLM + PDF (RAG)
 
-Use this mode when you want to ask questions about an uploaded document.
+1. Use **Upload a PDF** in the sidebar.
+2. Wait for text extraction, chunking, embedding and indexing to finish.
+3. Select **LLM + PDF**.
+4. Ask a question that the PDF can answer.
+5. Read the response and inspect the source filename and page references shown below it.
 
-Example:
+When a different PDF is uploaded, the dedicated PDF collection is cleared before the new document is indexed. The TXT collection named `localrag_documents` is not used for PDF-mode retrieval.
 
-```text
-User: Upload a PDF containing information about machine learning.
+### Remove the current PDF
 
-User: What is supervised learning?
+Click the `×` beside the selected PDF. The active PDF collection is cleared.
 
-Assistant: Retrieves relevant passages from the PDF and generates
-an answer using the retrieved document context.
+## API endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/health` | Check backend, Ollama and model availability |
+| `POST` | `/api/chat` | LLM Only or PDF RAG response |
+| `POST` | `/api/upload` | Upload and index a PDF (`multipart/form-data`, field `file`) |
+| `GET` | `/api/document` | Read active PDF metadata |
+| `POST` | `/api/document/reset` | Clear the active PDF index |
+
+## Existing command-line TXT workflow
+
+The original TXT workflow remains available:
+
+```powershell
+.\.venv\Scripts\python.exe indexer.py
+.\.venv\Scripts\python.exe main.py
 ```
 
-If the document does not contain enough information to answer a factual question, the system should indicate that sufficient evidence was not found.
+It indexes `.txt` files from `documents/` into the existing `localrag_documents` ChromaDB collection. This is separate from the web UI's PDF collection.
 
-The quality of the answer depends on document text extraction, chunking, retrieval quality, and language model behavior.
+## Important limitations
 
-## API Endpoints
+- **Scanned PDFs:** pypdf extracts selectable text. PDFs made only of scanned images need OCR; OCR is not included in this version.
+- **PDF size:** the web upload limit is 20 MB.
+- **Local privacy:** inference is sent to the Ollama service on your machine. First-time Python/model downloads require internet. Do not expose the Flask development server to an untrusted network.
+- **Retrieval threshold:** the cosine-distance cutoff is experimental, not a calibrated confidence score. Relevant passages can occasionally be missed, and irrelevant passages may occasionally be retrieved.
+- **Grounding:** the prompt asks the model to answer from retrieved evidence, but this cannot guarantee factual correctness.
+- **Conversation history:** LLM Only mode sends a short recent history. RAG answers are grounded in the currently indexed PDF; prior chat text is not used as document evidence.
+- **One active PDF:** the first version intentionally supports one active PDF at a time for a local single-user workflow.
 
-The Flask backend exposes HTTP endpoints for health monitoring, chat, and document operations.
+## Troubleshooting
 
-| Method | Endpoint      | Purpose                                                                               |
-| ------ | ------------- | ------------------------------------------------------------------------------------- |
-| GET    | `/api/health` | Checks backend and Ollama status, model availability, and document-index information. |
-| POST   | `/api/chat`   | Processes a chat message in the selected application mode.                            |
-| POST   | `/api/upload` | Handles PDF upload and processing, if implemented in the current backend version.     |
+### “Backend unavailable”
+- Start `app.py` and confirm the Flask terminal has no traceback.
+- Check `http://127.0.0.1:5000/api/health`.
+- Ensure port 5000 is not occupied by another process.
 
-### Health Check
+### “Ollama unavailable”
+- Open the Ollama app or start its service.
+- Verify `ollama list`.
+- Check that `http://localhost:11434/api/tags` is reachable.
 
-Request:
+### “Model not found”
+Run:
 
-```http
-GET /api/health
+```powershell
+ollama pull llama3.2
 ```
 
-Example response:
+### PDF processing says no selectable text
+The PDF may be scanned. Use a text-based PDF or add OCR support as a future improvement.
 
-```json
-{
-  "backend": "online",
-  "document": null,
-  "indexed_chunks": 0,
-  "model": "llama3.2",
-  "model_available": true,
-  "ollama": "online"
-}
-```
+### Model downloads fail or Python package installation fails
+Use Python 3.11 or 3.12 in a fresh virtual environment, update pip, and rerun the requirements installation. Model weights are downloaded on first use and may take time.
 
-The document and chunk counts depend on the current application state.
+## Project note
 
-### Chat Request
-
-The chat endpoint accepts a JSON request containing the message and selected mode.
-
-Illustrative request:
-
-```json
-{
-  "message": "Explain the main topic of this document.",
-  "mode": "rag"
-}
-```
-
-For general conversation, the frontend should send the mode configured for LLM Only.
-
-The exact request and response formats must match the implementation in `app.py` and `frontend/script.js`.
-
-## Privacy and Limitations
-
-### Privacy
-
-* The language model runs locally through Ollama.
-* Document processing and vector retrieval are intended to run on the local machine.
-* Local execution reduces the need to send document content to a cloud-based LLM provider.
-
-However, local model execution alone does not guarantee that every component is offline. Network requests, package downloads, or external retrieval services may introduce external dependencies if enabled in the implementation.
-
-### Limitations
-
-* Text extraction quality depends on the PDF's structure and content.
-* Scanned PDFs may require OCR, which is not guaranteed to be supported.
-* Retrieval may miss relevant passages or select irrelevant content.
-* The language model can still produce incorrect or unsupported statements.
-* Semantic similarity is not a guarantee that retrieved content supports a claim.
-* Performance depends on available system resources and model size.
-* Source references are useful only when the corresponding metadata is preserved and returned by the backend.
-* Large documents may increase indexing time and memory usage.
-
-LocalRAG should be evaluated using known-answer questions, unsupported questions, contradictory evidence, and ambiguous queries before being relied upon for high-stakes decisions.
-
-## Future Enhancements
-
-Potential improvements include:
-
-* Support for multiple simultaneous documents.
-* OCR support for scanned PDFs.
-* Improved retrieval using hybrid keyword and semantic search.
-* Reranking of retrieved passages.
-* More precise source and page-level citations.
-* Better handling of contradictory document evidence.
-* Document-level and claim-level answer verification.
-* Automated evaluation using a curated question-and-answer dataset.
-* Support for additional file formats.
-* Configurable chunk sizes and retrieval thresholds.
-* Performance monitoring and retrieval diagnostics.
-
-## Author
-
-**Nandan Patgar**
-
-B.E. — Artificial Intelligence and Machine Learning
-
-Vivekananda College of Engineering and Technology (VCET), Puttur
-
-GitHub: https://github.com/Nandanpatgar
-
----
-
-## License
-
-Add a `LICENSE` file to the repository if you intend to distribute the project under a specific open-source license.
+This is a learning project intended to demonstrate local LLM integration, PDF ingestion, chunking, embeddings, vector search, and evidence-grounded answering. The retrieval threshold and answer quality should be evaluated on representative documents and questions before relying on it for important decisions.

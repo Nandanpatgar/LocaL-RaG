@@ -1,0 +1,7 @@
+chromadb
+sentence-transformers
+requests
+pypdf
+flask
+flask-cors
+numpy
